@@ -1,0 +1,4 @@
+
+namespace CryptoGuard {
+
+}  // namespace CryptoGuard
