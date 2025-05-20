@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.30)
+cmake_minimum_required(VERSION 3.28)
 project(CryptoGuard VERSION 1.0.0 LANGUAGES CXX)
 
 # Configure local githooks
@@ -15,11 +15,13 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     add_compile_options(-Wfatal-errors)
 endif()
+set(CMAKE_C_COMPILER clang)
 
 # Ищем необходимые библиотеки
 find_package(OpenSSL REQUIRED)
 find_package(Boost REQUIRED COMPONENTS program_options)
 find_package(GTest REQUIRED)
+find_package(jemalloc)
 
 # Рекурсивно ищем все используемые .cpp и .h файлы, кроме main.cpp
 file(GLOB SRC_FILES "${CMAKE_SOURCE_DIR}/src/*.cpp")
@@ -35,10 +37,11 @@ target_include_directories(${PROJECT_NAME}_imp PUBLIC
     ${OPENSSL_INCLUDE_DIR}
     ${Boost_INCLUDE_DIRS}
 )
-target_link_libraries(${PROJECT_NAME}_imp PRIVATE ${OPENSSL_LIBRARIES} ${Boost_LIBRARIES})
+target_link_libraries(${PROJECT_NAME}_imp PRIVATE ${OPENSSL_LIBRARIES} ${Boost_LIBRARIES} jemalloc::jemalloc)
 
 # Создаём исполняемый таргет и линкуем к нему статическую библиотеку
-add_executable(${PROJECT_NAME} "${CMAKE_SOURCE_DIR}/src/main.cpp")
+add_executable(${PROJECT_NAME} "${CMAKE_SOURCE_DIR}/src/main.cpp"
+        include/util.h)
 target_link_libraries(${PROJECT_NAME} PRIVATE ${PROJECT_NAME}_imp)
 
 #
@@ -47,10 +50,17 @@ target_link_libraries(${PROJECT_NAME} PRIVATE ${PROJECT_NAME}_imp)
 
 # Рекурсивно ищем все используемые в тестах .cpp файлы
 file(GLOB TEST_SRC_FILES "${CMAKE_SOURCE_DIR}/tests/*.cpp")
-
+#"${TEST_SRC_FILES}")
+#find_package(GTest REQUIRED)
 add_executable(${PROJECT_NAME}_tests "${TEST_SRC_FILES}")
-target_link_libraries(${PROJECT_NAME}_tests PRIVATE ${PROJECT_NAME}_imp GTest::GTest GTest::Main)
+
+#add_executable(${PROJECT_NAME}_tests
+#        tests/cmd_options_test.cpp
+#        tests/crypo_guard_ctx_test.cpp
+#)
+
 target_include_directories(${PROJECT_NAME}_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+target_link_libraries(${PROJECT_NAME}_tests PRIVATE ${PROJECT_NAME}_imp GTest::GTest GTest::Main jemalloc::jemalloc)
 
 # Включаем тестирование
 enable_testing()
