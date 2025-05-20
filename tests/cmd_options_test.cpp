@@ -130,7 +130,7 @@ TEST_F(TestCmd, help) {
     //malloc_stats_print(NULL, NULL, NULL);
 }
 
-TEST_F(TestCmd, chechsum) {
+TEST_F(TestCmd, checksum) {
     EXPECT_NO_THROW(po_.Parse(5, const_cast<char**>(CmdOpts::checksum)));
 }
 
@@ -142,7 +142,6 @@ TEST_F(TestCmd, errors) {
     EXPECT_THROW(po_.Parse(9, const_cast<char**>(CmdOpts::all_invalid_file_name)), std::invalid_argument);
     EXPECT_THROW(po_.Parse(9, const_cast<char**>(CmdOpts::all_empty_file_name)), std::invalid_argument);
 }
-
 
 } //namespace
 //ProgramOptions (TEST(ProgramOptions, TestName))

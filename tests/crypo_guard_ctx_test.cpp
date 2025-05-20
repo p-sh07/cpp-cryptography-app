@@ -10,27 +10,91 @@
 namespace {
 using namespace std::literals;
 
-class TestCtx : public testing::Test {
+class TestCtx : public testing::TestWithParam<std::string> {
 protected:
     //void SetUp() override; //Empty, just load test into src sstream
     //void TearDown() override;
+    void LoadIntoSrc(std::string text) {
+        src_ << text;
+    }
+
+    std::string GetSrcStr() const {
+        return src_.str();
+    }
+
+    std::string GetEncryptedStr() const {
+        return encrypted_.str();
+    }
+
+    std::string GetDecryptedStr() const {
+        return decrypted_.str();
+    }
+    CryptoGuard::CryptoGuardCtx cg_;
+    std::string_view password_ = "somepassword"sv;
     std::stringstream src_;
     std::stringstream encrypted_;
     std::stringstream decrypted_;
 };
 
-struct InputData {
-    static constexpr std::string short_txt = ""s;
-    static constexpr std::string long_txt = ""s;
-    static constexpr std::string cyrilic = ""s;
-    static constexpr std::string special_symbols = ""s;
-    static constexpr std::string empty = ""s;
-};
+// struct InputData {
+//     static constexpr std::string short_txt = "This is a cRyPtoGraphy Example"s;
+//     static constexpr std::string long_txt  = "Miss Elizabeth Bennet hastened towards the parlour,"
+//                                              "where Mr. Darcy was conversing with Lady Catherine.\n"
+//                                              "\"Indeed,\" she exclaimed, \"your lordship\'s visit is most unexpected!\"\n"
+//                                              "\"I trust,\" replied Darcy, \"that my presence does not disturb your tranquility.\"";
+//     static constexpr std::string cyrilic         = "Ёлки-палки, это самый классный тест для криптографического приложения!"s;
+//     static constexpr std::string special_symbols = "\\/:*?\"<>|"s;
+//     static constexpr std::string empty           = ""s;
+//
+//     static constexpr std::string unicode = ""s;
+//     static constexpr std::string ansi = ""s;
+//     // etc.
+// };
 
-//Set password and CG class:
-std::string_view password = "hello_world"sv;
-CryptoGuard::CryptoGuardCtx crypto_guard_ctx;
+TEST_P(TestCtx, EncryptDecryptShort) {
+    LoadIntoSrc(GetParam());
+    EXPECT_NO_THROW(cg_.EncryptFile(src_, encrypted_, password_));
+    EXPECT_NO_THROW(cg_.DecryptFile(encrypted_, decrypted_, password_));
 
+    EXPECT_EQ(GetSrcStr(), GetDecryptedStr());
+
+    std::string src_hash, decr_hash;
+
+    EXPECT_NO_THROW(src_hash = cg_.CalculateChecksum(src_));
+    EXPECT_NO_THROW(decr_hash = cg_.CalculateChecksum(decrypted_));
+    EXPECT_EQ(src_hash, decr_hash);
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    EncryptDecryptTests,
+    TestCtx,
+    testing::Values(
+        //short str
+        "This is a cRyPtoGraphy Example"s,
+
+        //long str
+        "Miss Elizabeth Bennet hastened towards the parlour,"
+        "where Mr. Darcy was conversing with Lady Catherine.\n"
+        "\"Indeed,\" she exclaimed, \"your lordship\'s visit is most unexpected!\"\n"
+        "\"I trust,\" replied Darcy, \"that my presence does not disturb your tranquility.\"",
+
+        //Cyrilic
+        "Ёлки-палки, это самый классный тест для криптографического приложения!"s,
+
+        //Special symbols
+        "\\/:*?\"<>|"s,
+
+        //Empty
+        ""s
+    ));
+
+TEST_F(TestCtx, TestPasswords) {
+
+}
+
+TEST_F(TestCtx, Errors) {
+
+}
 //Сначала написал тесты с fstream, только потом заметил, что по заданию нужно с sstream о_О
 //Можно было переписать и сделать возможность переключения между fstream/sstream, но решил что проще переписать заново с sstream
 #ifdef TEST_WITH_FSTREAM
@@ -155,5 +219,4 @@ TEST_F(TestCtx, DecryptedMatchSrc) {
     EXPECT_TRUE(compareFiles(Files::input_src, Files::decrypted_fname));
 }
 #endif
-
 } //namespace
