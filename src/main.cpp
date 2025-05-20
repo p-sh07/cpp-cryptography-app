@@ -27,7 +27,8 @@ int main(int argc, char *argv[]) {
         std::fstream in, out;
         util::OpenFile(in, options.GetInputFile());
         if(options.GetCommand() != COMMAND_TYPE::CHECKSUM) {
-            util::OpenFile(out, options.GetOutputFile());
+            //set read_mode = false for write
+            util::OpenFile(out, options.GetOutputFile(), false);
         }
 
         // 2.Perform command

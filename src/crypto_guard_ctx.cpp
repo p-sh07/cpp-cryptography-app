@@ -28,7 +28,7 @@ static void ThrowIfOpensslErr(int op_result) {
     /** from doc: one way to print errors is by ERR_get_error() -> ERR_error_string(errcode): https://gist.github.com/edwardstock/3c992fb71320391d3639696328a61115
      * More convenient to print errors using ERR_print_errors + BIO: https://docs.openssl.org/1.0.2/man3/ERR_print_errors/#name
      * */
-    if (op_result == 1 && ERR_peek_error() != 0) {
+    if (op_result == 1 && ERR_peek_error() == 0) {
         //operation was successful, no errors in queue
         return;
     }
@@ -38,11 +38,16 @@ static void ThrowIfOpensslErr(int op_result) {
     };
     std::unique_ptr<BIO, decltype(bio_deleter)> bio_ptr(BIO_new(BIO_s_mem()));
 
+    // char* buf;
+    // ERR_error_string_n(ERR_get_error(), buf, 256);
+    // auto err_msg = std::string(buf, 256);
+
     ERR_print_errors(bio_ptr.get());
     char* buf;
-    size_t len = BIO_get_mem_data(bio_ptr.get(), buf);
-
-    throw std::runtime_error("EVP operation failed: " + std::string(buf, len));
+    size_t len = BIO_get_mem_data(bio_ptr.get(), &buf);
+    auto msg = std::string(buf, len); //copy text to string before freeing bio
+    std::cerr << msg << std::endl;
+    throw std::runtime_error("EVP operation failed: " + msg);
 }
 
 class CryptoGuardCtx::Impl {
@@ -176,6 +181,7 @@ void CryptoGuardCtx::Impl::UseOpensslCtx(bool do_encrypt, std::iostream& inStrea
         throw std::runtime_error("Failed to create EVP_CIPHER_CTX");
     }
 
+
     auto params    = CreateChiperParamsFromPassword(password);
     params.encrypt = static_cast<int>(do_encrypt);
 
@@ -234,50 +240,3 @@ std::string CryptoGuardCtx::CalculateChecksum(std::iostream& inStream) {
     return pImpl_->ComputeChecksum(inStream);
 }
 } // namespace CryptoGuard
-
-
-/** Checksum example code:
-//use Evp?
-    auto ctx_deleter = [](EVP_MD_CTX* ctx) {
-        EVP_MD_CTX_free(ctx);
-};
-std::unique_ptr<EVP_CIPHER_CTX, decltype(ctx_deleter)> mdctx(EVP_MD_CTX_new());
-if (!mdctx) {
-    throw std::runtime_error("Failed to create sha256-context");
-}
-
-if(!EVP_DigestInit_ex(mdctx.get(), EVP_sha256(), nullptr)) {
-    throw std::runtime_error("Failed to init sha256-context");
-}
-
-if(!EVP_DigestUpdate(mdctx, message, strlen(message)))
-    handleErrors();
-
-if((*digest = (unsigned char *)OPENSSL_malloc(EVP_MD_size(EVP_sha256()))) == NULL)
-    handleErrors();
-
-if(1 != EVP_DigestFinal_ex(mdctx, *digest, digest_len))
-    handleErrors();
-
-EVP_MD_CTX_free(mdctx);
-
-//Deprecated:
-void SHA256(void* input, unsigned long length, unsigned char* md)
-unsigned char hash[SHA256_DIGEST_LENGTH];
-
-SHA256_CTX sha256_ctx; //-> use as local variable, no need for smart pointer/deleter
-if(!SHA256_Init(&sha256_ctx)) {
-    throw std::runtime_error("Failed to init SHA256 context");
-}
-SHA256_Update(&sha256_ctx, str.c_str(), str.size())) {
-    throw std::runtime_error("Failed to init SHA256 context");
-}
-SHA256_Final(hash, &sha256)) {
-    throw std::runtime_error("Failed to init SHA256 context");
-}
-std::stringstream ss;
-for (int i = 0; i < SHA256_DIGEST_LENGTH; i++) {
-    ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(hash[i]);
-}
-return ss.str();
-*/

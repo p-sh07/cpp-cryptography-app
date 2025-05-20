@@ -9,13 +9,19 @@
 
 namespace {
 using namespace std::literals;
+using ::testing::TestWithParam;
+using ::testing::Values;
 
-class TestCtx : public testing::TestWithParam<std::string> {
+class TestCtx : public TestWithParam<std::string> {
 protected:
     //void SetUp() override; //Empty, just load test into src sstream
     //void TearDown() override;
     void LoadIntoSrc(std::string text) {
         src_ << text;
+    }
+
+    void LoadIntoEncrypted(std::string text) {
+        encrypted_ << text;
     }
 
     std::string GetSrcStr() const {
@@ -36,39 +42,44 @@ protected:
     std::stringstream decrypted_;
 };
 
-// struct InputData {
-//     static constexpr std::string short_txt = "This is a cRyPtoGraphy Example"s;
-//     static constexpr std::string long_txt  = "Miss Elizabeth Bennet hastened towards the parlour,"
-//                                              "where Mr. Darcy was conversing with Lady Catherine.\n"
-//                                              "\"Indeed,\" she exclaimed, \"your lordship\'s visit is most unexpected!\"\n"
-//                                              "\"I trust,\" replied Darcy, \"that my presence does not disturb your tranquility.\"";
-//     static constexpr std::string cyrilic         = "Ёлки-палки, это самый классный тест для криптографического приложения!"s;
-//     static constexpr std::string special_symbols = "\\/:*?\"<>|"s;
-//     static constexpr std::string empty           = ""s;
-//
-//     static constexpr std::string unicode = ""s;
-//     static constexpr std::string ansi = ""s;
-//     // etc.
-// };
+TEST_F(TestCtx, SimpleTextEncrypt) {
+    LoadIntoSrc("simple text"s);
+    EXPECT_NO_THROW(cg_.EncryptFile(src_, encrypted_, password_));
+}
 
-TEST_P(TestCtx, EncryptDecryptShort) {
+TEST_F(TestCtx, SimpleTextDecryptError) {
+    LoadIntoSrc("simple text"s);
+    EXPECT_THROW(cg_.DecryptFile(src_, decrypted_, password_), std::runtime_error);
+}
+
+TEST_P(TestCtx, EncryptDecrypt) {
     LoadIntoSrc(GetParam());
     EXPECT_NO_THROW(cg_.EncryptFile(src_, encrypted_, password_));
     EXPECT_NO_THROW(cg_.DecryptFile(encrypted_, decrypted_, password_));
 
     EXPECT_EQ(GetSrcStr(), GetDecryptedStr());
+}
 
-    std::string src_hash, decr_hash;
+TEST_P(TestCtx, Checksum) {
+    LoadIntoSrc(GetParam());
+    std::string checksum;
+    EXPECT_NO_THROW(checksum = cg_.CalculateChecksum(src_));
+    EXPECT_EQ(checksum.length(), 64);
+}
 
-    EXPECT_NO_THROW(src_hash = cg_.CalculateChecksum(src_));
-    EXPECT_NO_THROW(decr_hash = cg_.CalculateChecksum(decrypted_));
-    EXPECT_EQ(src_hash, decr_hash);
+TEST_P(TestCtx, ChecksumEncryptDecryptSame) {
+    LoadIntoSrc(GetParam());
+    EXPECT_NO_THROW(cg_.EncryptFile(src_, encrypted_, password_));
+    EXPECT_NO_THROW(cg_.DecryptFile(encrypted_, decrypted_, password_));
+
+    //Reload input into src_ buff after first read:
+    src_.clear();
+    LoadIntoSrc(GetParam());
+    EXPECT_EQ(cg_.CalculateChecksum(src_), cg_.CalculateChecksum(decrypted_));
 }
 
 INSTANTIATE_TEST_SUITE_P(
-    EncryptDecryptTests,
-    TestCtx,
-    testing::Values(
+    EncryptDecryptTests, TestCtx, Values(
         //short str
         "This is a cRyPtoGraphy Example"s,
 
@@ -88,15 +99,17 @@ INSTANTIATE_TEST_SUITE_P(
         ""s
     ));
 
-TEST_F(TestCtx, TestPasswords) {
+//TODO:
+// TEST_F(TestCtx, TestPasswords) {
+//
+// }
+//
+// TEST_F(TestCtx, Errors) {
+//
+// }
 
-}
-
-TEST_F(TestCtx, Errors) {
-
-}
 //Сначала написал тесты с fstream, только потом заметил, что по заданию нужно с sstream о_О
-//Можно было переписать и сделать возможность переключения между fstream/sstream, но решил что проще переписать заново с sstream
+//Можно было переписать и сделать возможность переключения между fstream/sstream, но решил переписать заново с sstream
 #ifdef TEST_WITH_FSTREAM
 namespace fs = std::filesystem;
 // Helper functions
