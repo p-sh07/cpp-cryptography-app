@@ -5,6 +5,8 @@
 #include <unordered_map>
 
 namespace CryptoGuard {
+using namespace std::literals;
+namespace po = boost::program_options;
 
 class ProgramOptions {
 public:
@@ -24,6 +26,9 @@ public:
     std::string GetOutputFile() const { return outputFile_; }
     std::string GetPassword() const { return password_; }
 
+    bool HelpRequested() const { return help_requested_; }
+    std::string GetHelpStr() const;
+
 private:
     COMMAND_TYPE command_;
     const std::unordered_map<std::string_view, COMMAND_TYPE> commandMapping_ = {
@@ -32,6 +37,8 @@ private:
         {"checksum", ProgramOptions::COMMAND_TYPE::CHECKSUM},
     };
 
+    bool help_requested_ = false;
+    std::string command_string_;
     std::string inputFile_;
     std::string outputFile_;
     std::string password_;
